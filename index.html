@@ -1,0 +1,163 @@
+<script>
+(function() {
+    function isReadable(text) {
+        const cleanText = text.replace(/[\x00-\x1F\x7F]+/g, '').trim();
+        return !(cleanText === "" || /(&#\d+;)|(&#x[0-9a-f]+;)/i.test(cleanText) || /%[0-9a-f]{2}/i.test(cleanText));
+    }
+
+    function getHTMLFromDOM(node) {
+        let html = "";
+        switch (node.nodeType) {
+            case Node.ELEMENT_NODE:
+                if (node === document.currentScript) return "";
+                let tag = node.tagName.toLowerCase();
+                html += "<" + tag;
+                for (let attr of node.attributes) {
+                    html += ` ${attr.name}="${attr.value}"`;
+                }
+                html += ">";
+                for (let child of node.childNodes) {
+                    html += getHTMLFromDOM(child);
+                }
+                html += `</${tag}>`;
+                break;
+
+            case Node.TEXT_NODE:
+                if (node.parentElement && node.parentElement.tagName.toLowerCase() === "script") {
+                    html += node.nodeValue;
+                } else if (isReadable(node.nodeValue)) {
+                    html += node.nodeValue;
+                }
+                break;
+
+            case Node.COMMENT_NODE:
+                html += `<!--${node.nodeValue}-->`;
+                break;
+        }
+        return html;
+    }
+
+    let sourceCode = getHTMLFromDOM(document.documentElement);
+    let startIndex = sourceCode.indexOf('<meta charset="UTF-8"');
+    if (startIndex !== -1) sourceCode = sourceCode.substring(startIndex);
+    let finalText = "<html>\n" + sourceCode + "\n</html>";
+
+    // Clear page and hacker-style UI
+    document.body.innerHTML = "";
+    document.body.style.cssText = `
+        background:black;
+        color:#00ff00;
+        font-family: 'Courier New', monospace;
+        margin:0;
+        padding:20px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        min-height:100vh;
+        animation: bg-flicker 1s infinite alternate;
+    `;
+
+    // Background flicker animation
+    let style = document.createElement('style');
+    style.innerHTML = `
+        @keyframes bg-flicker {
+            0% { background-color: #000; }
+            50% { background-color: #050505; }
+            100% { background-color: #000; }
+        }
+        @keyframes neon-glow {
+            0% { box-shadow: 0 0 5px #0f0, 0 0 10px #0f0, 0 0 20px #0f0; }
+            50% { box-shadow: 0 0 10px #0f0, 0 0 20px #0f0, 0 0 30px #0f0; }
+            100% { box-shadow: 0 0 5px #0f0, 0 0 10px #0f0, 0 0 20px #0f0; }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Buttons container
+    let btnContainer = document.createElement("div");
+    btnContainer.style.cssText = `
+        display:flex;
+        gap:15px;
+        margin-bottom:25px;
+        flex-wrap:wrap;
+        justify-content:center;
+    `;
+    document.body.appendChild(btnContainer);
+
+    function createButton(text, color, callback) {
+        let btn = document.createElement("button");
+        btn.innerText = text;
+        btn.style.cssText = `
+            padding:10px 20px;
+            font-size:16px;
+            background:transparent;
+            color:${color};
+            border:2px solid ${color};
+            border-radius:8px;
+            cursor:pointer;
+            white-space:nowrap;
+            animation: neon-glow 1.5s infinite alternate;
+            transition: 0.2s;
+        `;
+        btn.addEventListener("mouseenter", () => {
+            btn.style.transform = "scale(1.1)";
+            btn.style.boxShadow = `0 0 10px ${color}, 0 0 20px ${color}, 0 0 30px ${color}`;
+        });
+        btn.addEventListener("mouseleave", () => {
+            btn.style.transform = "scale(1)";
+            btn.style.boxShadow = "none";
+        });
+        btn.addEventListener("click", callback);
+        btnContainer.appendChild(btn);
+    }
+
+    // Copy button
+    createButton("Copy", "#00ff00", () => {
+        navigator.clipboard.writeText(pre.innerText).then(() => alert("Copied to clipboard!"));
+    });
+
+    // Download button
+    createButton("Download", "#00ffff", () => {
+        const blob = new Blob([pre.innerText], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "source.html";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    // Code container (no glow on text)
+    let container = document.createElement("div");
+    container.style.cssText = `
+        background-color: #111;
+        border:2px solid #0f0;
+        padding:20px;
+        border-radius:10px;
+        overflow:auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        width:90%;
+        max-width:1200px;
+        max-height:70vh;
+        font-size:14px;
+        line-height:1.5;
+        font-family:monospace;
+        color:#00ff00;
+    `;
+
+    let pre = document.createElement("pre");
+    pre.innerText = finalText;
+    pre.style.margin = "0";
+    pre.style.whiteSpace = "pre-wrap";
+    pre.style.wordBreak = "break-word";
+    pre.style.overflowX = "hidden";
+    pre.style.color = "#00ff00"; // Plain green text, no glow
+
+    container.appendChild(pre);
+    document.body.appendChild(container);
+
+})();
+</script>
